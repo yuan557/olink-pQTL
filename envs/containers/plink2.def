@@ -1,0 +1,19 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+    apt-get update && apt-get install -y --no-install-recommends \
+        wget \
+        unzip \
+        ca-certificates \
+        && rm -rf /var/lib/apt/lists/*
+
+    wget -q https://s3.amazonaws.com/plink2-assets/alpha5/plink2_linux_x86_64_20240105.zip \
+        -O /tmp/plink2.zip
+    unzip /tmp/plink2.zip -d /usr/local/bin/
+    rm /tmp/plink2.zip
+    chmod +x /usr/local/bin/plink2
+
+%labels
+    Author pqtl-pipeline
+    Version 1.0

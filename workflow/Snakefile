@@ -1,0 +1,16 @@
+configfile: "config/config.yaml"
+
+
+CHROMS = config["chromosomes"]
+TARGETS = config["targets"]
+GENES = [t["gene"] for t in TARGETS]
+OUTDIR = config.get("outdir", "results")
+
+
+include: "rules/qc.smk"
+include: "rules/pqtl.smk"
+
+
+rule all:
+    input:
+        f"{OUTDIR}/pqtl/pqtl_summary.csv",

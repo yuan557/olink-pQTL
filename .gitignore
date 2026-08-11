@@ -1,0 +1,11 @@
+config/config.yaml
+results/
+logs/
+.snakemake/
+*.pyc
+__pycache__/
+.Rhistory
+.RData
+*.sif
+slurm-*.out
+slurm-*.err

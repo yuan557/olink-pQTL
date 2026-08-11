@@ -1,0 +1,52 @@
+executor: slurm
+default-resources:
+  slurm_account: "def-aharroud"
+  slurm_partition: ""
+  mem_mb: 8000
+  runtime: 60
+  cpus_per_task: 1
+
+set-resources:
+  select_genotype_chr:
+    mem_mb: 64000
+    cpus_per_task: 10
+    runtime: 60
+  merge_chromosomes:
+    mem_mb: 64000
+    cpus_per_task: 10
+    runtime: 60
+  ld_prune:
+    mem_mb: 64000
+    cpus_per_task: 10
+    runtime: 60
+  remove_related:
+    mem_mb: 64000
+    cpus_per_task: 10
+    runtime: 30
+  compute_pca:
+    mem_mb: 32000
+    cpus_per_task: 10
+    runtime: 30
+  extract_cis_pqtl_chr:
+    mem_mb: 64000
+    cpus_per_task: 10
+    runtime: 60
+  merge_cis_pqtl:
+    mem_mb: 64000
+    cpus_per_task: 1
+    runtime: 15
+  export_dosage:
+    mem_mb: 64000
+    cpus_per_task: 1
+    runtime: 15
+  preprocess_cache:
+    mem_mb: 64000
+    cpus_per_task: 4
+    runtime: 30
+  run_pqtl_association:
+    mem_mb: 8000
+    cpus_per_task: 1
+    runtime: 30
+
+jobs: 100
+latency-wait: 120
