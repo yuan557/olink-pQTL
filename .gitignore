@@ -1,3 +1,4 @@
+.venv/
 config/config.yaml
 results/
 logs/
