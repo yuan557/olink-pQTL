@@ -1,24 +1,23 @@
 # olink-pQTL
 
-Snakemake workflow that runs covariate-adjusted linear models on genotype
-dosages and Olink NPX values to produce cis-pQTL summary statistics
-(beta, SE, p-value).
+Snakemake pipeline that tests whether a single-nucleotide variant (SNV) is
+associated with changes in plasma protein levels measured by the Olink Explore
+platform. For each variant-protein pair the pipeline fits a covariate-adjusted
+linear model and outputs the effect size (beta), standard error, and p-value.
 
 Designed for UK Biobank Olink Explore data on SLURM-based HPC clusters
 (tested on the Digital Research Alliance of Canada).
 
-## What it does
+## Purpose
 
-Given a set of target genes, the pipeline:
+Given a list of target genes and their known cis-pQTL variants (from published
+summary statistics such as Sun et al. 2023 / UKB-PPP), the pipeline asks:
 
-1. Selects participants by genetic ancestry and excludes disease cases
-2. Extracts and QCs genotyped variants (per chromosome), merges, LD-prunes,
-   removes related individuals (KING), and computes principal components
-3. Identifies cis-pQTL variants for each target gene from external summary
-   statistics (e.g. Sun et al. 2023, UKB-PPP)
-4. Extracts those variants from imputed data and exports additive dosages
-5. Builds per-protein batch and processing-time covariates
-6. Fits a linear model per variant-protein pair:
+> **Is this SNV associated with a change in plasma protein level, after
+> adjusting for age, sex, ancestry PCs, genotyping batch, Olink plate batch,
+> and processing time?**
+
+For every variant-protein pair it reports beta, SE, and p-value from:
 
 ```
 RINT(NPX) ~ dosage + age + age^2 + sex + age:sex + age^2:sex
@@ -26,7 +25,24 @@ RINT(NPX) ~ dosage + age + age^2 + sex + age:sex + age^2:sex
            + processing_time + PC1 + ... + PC20
 ```
 
-7. Collects all results into a single summary table
+## Pipeline steps
+
+1. **Sample selection** -- filter participants by genetic ancestry and exclude
+   disease cases
+2. **Genotype QC** -- extract genotyped variants per chromosome, merge,
+   apply MAF / missingness / HWE filters, LD-prune, remove related
+   individuals (KING), compute principal components
+3. **cis-pQTL identification** -- look up cis-variants for each target gene
+   from external summary statistics (Snakemake checkpoint; the number of
+   downstream jobs is determined at runtime)
+4. **Dosage extraction** -- extract cis-variants from imputed data and export
+   additive dosages
+5. **Covariate construction** -- build per-protein batch and processing-time
+   covariates
+6. **Association testing** -- fit one linear model per variant-protein pair
+   (rank-inverse normal transformed NPX as outcome, additive dosage as
+   predictor, covariates as above)
+7. **Summary** -- collect all per-pair results into a single CSV
 
 Adding a new gene is a single YAML entry -- no code changes needed.
 
@@ -49,12 +65,12 @@ olink-pQTL/
       qc.smk                # sample selection, genotype QC, LD pruning, PCA
       pqtl.smk              # cis-pQTL extraction, dosage export, association
     scripts/
-      select_samples.R      # filter participants by ancestry / exclusion
-      isolate_cis_pqtl.R    # identify cis-variants from summary stats
+      select_samples.R
+      isolate_cis_pqtl.R
       create_batch_covariates.R
-      preprocess_cache.R    # merge and cache data for association jobs
-      run_pqtl_association.R  # RINT + linear model per variant-protein pair
-      summarize_pqtl.R      # collect results into one table
+      preprocess_cache.R
+      run_pqtl_association.R
+      summarize_pqtl.R
 ```
 
 ## Requirements
@@ -85,7 +101,7 @@ cd olink-pQTL
 cp config/config.yaml.example config/config.yaml
 # Edit config/config.yaml -- fill in your data paths and target genes
 
-# 3. Dry run
+# 3. Dry run (resolves the full DAG including checkpoint)
 snakemake -n
 
 # 4. Run on SLURM
@@ -96,13 +112,11 @@ snakemake --profile profiles/slurm/
 
 ## Configuration
 
-All paths, QC parameters, and analysis targets are in `config/config.yaml`.
-
-Key sections:
+All paths, QC parameters, and analysis targets live in `config/config.yaml`.
 
 | Section | What it controls |
-|---------|-----------------|
-| `paths` | Input file locations (genotypes, Olink data, covariates, summary stats) |
+|-----------|-----------------|
+| `paths` | Input file locations (genotypes, Olink NPX, covariates, summary stats) |
 | `cohort` | Genetic ancestry filter and disease exclusion field |
 | `qc` | MAF, missingness, HWE, LD pruning, KING cutoff, number of PCs |
 | `targets` | List of genes to analyse |
@@ -116,19 +130,20 @@ Append to `config/config.yaml`:
 ```yaml
 targets:
   - gene: "CD40"
-  - gene: "IL7R"   # new
+  - gene: "IL7R"
 ```
 
 Re-run `snakemake --profile profiles/slurm/`. The checkpoint in `pqtl.smk`
 discovers the new gene's cis-variants from the summary statistics and
 schedules association jobs automatically.
 
-## Test data
+## Output
 
-This repository does not include real data. To test with public data:
+The final output is `results/pqtl/pqtl_summary.csv` with one row per
+variant-protein pair containing:
 
-1. Download 1000 Genomes phase 3 pgen files from
-   https://www.cog-genomics.org/plink/2.0/resources
-2. Simulate NPX values (random normal) for a subset of samples
-3. Create a mock `cis_pQTL.csv` manifest pointing to a few variants
-4. Point `config.yaml` paths at the simulated files
+- Protein name and variant ID
+- Effect size (beta) and standard error
+- p-value
+- Sample size
+
